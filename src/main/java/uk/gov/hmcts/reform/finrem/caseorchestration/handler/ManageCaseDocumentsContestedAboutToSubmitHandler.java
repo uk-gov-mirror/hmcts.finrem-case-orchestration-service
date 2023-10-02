@@ -23,7 +23,7 @@ import java.util.Optional;
 
 @Slf4j
 @Service
-public class ManageCaseDocumentsContestedAboutToSubmitHandler extends FinremCallbackHandler {
+public class  ManageCaseDocumentsContestedAboutToSubmitHandler extends FinremCallbackHandler {
 
     public static final String CHOOSE_A_DIFFERENT_PARTY = " not present on the case, do you want to continue?";
     public static final String INTERVENER_1 = "Intervener 1 ";
