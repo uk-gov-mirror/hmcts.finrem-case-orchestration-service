@@ -11,27 +11,21 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.test.context.junit.jupiter.SpringExtension;
 import uk.gov.hmcts.reform.ccd.client.model.CallbackRequest;
-import uk.gov.hmcts.reform.ccd.client.model.CaseDetails;
 import uk.gov.hmcts.reform.finrem.caseorchestration.BaseServiceTest;
-import uk.gov.hmcts.reform.finrem.caseorchestration.BaseTest;
 import uk.gov.hmcts.reform.finrem.caseorchestration.controllers.GenericAboutToStartOrSubmitCallbackResponse;
-import uk.gov.hmcts.reform.finrem.caseorchestration.handler.BaseHandlerTestSetup;
 import uk.gov.hmcts.reform.finrem.caseorchestration.handler.InterimHearingContestedAboutToStartHandler;
 import uk.gov.hmcts.reform.finrem.caseorchestration.helper.InterimHearingHelper;
 import uk.gov.hmcts.reform.finrem.caseorchestration.integrationtest.IntegrationTest;
 import uk.gov.hmcts.reform.finrem.caseorchestration.mapper.InterimHearingItemMapper;
 import uk.gov.hmcts.reform.finrem.caseorchestration.model.ccd.CaseDocument;
+import uk.gov.hmcts.reform.finrem.caseorchestration.model.ccd.InterimHearingBulkPrintDocumentsData;
 import uk.gov.hmcts.reform.finrem.caseorchestration.model.ccd.InterimHearingCollectionItemData;
-import uk.gov.hmcts.reform.finrem.caseorchestration.model.ccd.InterimHearingData;
-import uk.gov.hmcts.reform.finrem.caseorchestration.model.ccd.InterimHearingItem;
 import uk.gov.hmcts.reform.finrem.caseorchestration.service.PartyService;
 
-import java.io.InputStream;
-import java.time.LocalDate;
-import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
+import static uk.gov.hmcts.reform.finrem.caseorchestration.model.ccd.CCDConfigConstant.INTERIM_HEARING_ALL_DOCUMENT;
 import static uk.gov.hmcts.reform.finrem.caseorchestration.model.ccd.CCDConfigConstant.INTERIM_HEARING_COLLECTION;
 import static uk.gov.hmcts.reform.finrem.caseorchestration.model.ccd.CCDConfigConstant.INTERIM_HEARING_DOCUMENT;
 
@@ -59,26 +53,32 @@ public class InterimHearingContestedAboutToStartHandlerIntegrationTests extends 
     private InterimHearingContestedAboutToStartHandler interimHearingContestedAboutToStartHandler;
 
     @Test
-    public void shouldSetToDefault() throws Exception{
+    public void shouldSetToDefault() throws Exception {
 
         CallbackRequest callbackRequest = buildCallbackRequest(TEST_NEW_JSON_WITH_INTERIM_HEARING_DOCS);
 
         Map<String, Object> data = callbackRequest.getCaseDetails().getData();
 
         data.put(INTERIM_HEARING_DOCUMENT, CaseDocument.builder()
-                .documentBinaryUrl("http://dm-store/lhjbyuivu87y989hijbb/binary")
-                .documentFilename("app_docs.pdf")
-                .documentUrl("http://dm-store/lhjbyuivu87y989hijbb/binary")
+            .documentBinaryUrl("http://dm-store/lhjbyuivu87y989hijbb/binary")
+            .documentFilename("app_docs.pdf")
+            .documentUrl("http://dm-store/lhjbyuivu87y989hijbb/binary")
             .build());
 
         GenericAboutToStartOrSubmitCallbackResponse<Map<String, Object>> response
-            = interimHearingContestedAboutToStartHandler.handle(callbackRequest,AUTH_TOKEN);
+            = interimHearingContestedAboutToStartHandler.handle(callbackRequest, AUTH_TOKEN);
 
-        List<InterimHearingCollectionItemData> interimHearingCollectionItemData = objectMapper.convertValue(response.getData().get(INTERIM_HEARING_COLLECTION), new TypeReference<List<InterimHearingCollectionItemData>>() {
-        });
+        List<InterimHearingCollectionItemData> interimHearingCollectionItemData =
+            objectMapper.convertValue(response.getData().get(INTERIM_HEARING_COLLECTION),
+                new TypeReference<>() {
+                });
+        Assert.assertEquals(interimHearingCollectionItemData.size(), 1);
 
-        Assert.assertEquals(interimHearingCollectionItemData.size() , 1 );
 
+        List<InterimHearingBulkPrintDocumentsData> interimHearingBulkPrintDocumentsDataList =
+            objectMapper.convertValue(response.getData().get(INTERIM_HEARING_ALL_DOCUMENT), new TypeReference<>() {
+            });
+        Assert.assertEquals(interimHearingBulkPrintDocumentsDataList.size(), 2);
 
 
     }
