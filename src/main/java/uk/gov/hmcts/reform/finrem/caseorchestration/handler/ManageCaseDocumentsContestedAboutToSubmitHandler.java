@@ -10,7 +10,6 @@ import uk.gov.hmcts.reform.finrem.caseorchestration.mapper.FinremCaseDetailsMapp
 import uk.gov.hmcts.reform.finrem.caseorchestration.model.EventType;
 import uk.gov.hmcts.reform.finrem.caseorchestration.model.ccd.CaseDocumentParty;
 import uk.gov.hmcts.reform.finrem.caseorchestration.model.ccd.CaseType;
-import uk.gov.hmcts.reform.finrem.caseorchestration.model.ccd.DynamicMultiSelectList;
 import uk.gov.hmcts.reform.finrem.caseorchestration.model.ccd.FinremCaseData;
 import uk.gov.hmcts.reform.finrem.caseorchestration.model.ccd.UploadCaseDocumentCollection;
 import uk.gov.hmcts.reform.finrem.caseorchestration.service.FeatureToggleService;
@@ -36,9 +35,6 @@ public class ManageCaseDocumentsContestedAboutToSubmitHandler extends FinremCall
 
     private final EvidenceManagementDeleteService evidenceManagementDeleteService;
     private final FeatureToggleService featureToggleService;
-
-    List<String> documentTypesToDelete = new ArrayList<>();
-    List<String> documentFileNamesToDelete = new ArrayList<>();
 
 
     @Autowired
@@ -81,54 +77,7 @@ public class ManageCaseDocumentsContestedAboutToSubmitHandler extends FinremCall
             deleteRemovedDocuments(caseData, caseDataBefore, userAuthorisation);
         }
 
-        DynamicMultiSelectList caseDocumentsToDelete = caseData.getUploadedDocumentsToDelete();
-        caseDocumentsToDelete.getValue().forEach(dynamicMultiSelectListElement -> {
-            documentTypesToDelete.add(dynamicMultiSelectListElement.getCode());
-            documentFileNamesToDelete.add(dynamicMultiSelectListElement.getLabel());
-        });
-        List<String> errors = new ArrayList<>();
-        documentTypesToDelete.forEach(document -> deleteDocuments(document, caseData, errors));
-
-        return GenericAboutToStartOrSubmitCallbackResponse.<FinremCaseData>builder().data(caseData).errors(errors).warnings(warnings).build();
-    }
-
-    private void deleteDocuments(String document, FinremCaseData caseData, List<String> errors) {
-        switch (document) {
-            case "divorceUploadEvidence1" -> caseData.setDivorceUploadEvidence1(null);
-            case "divorceUploadEvidence2" -> caseData.setDivorceUploadEvidence2(null);
-            case "divorceUploadPetition" -> caseData.setDivorceUploadPetition(null);
-            case "variationOrderDocument" -> caseData.setVariationOrderDocument(null);
-            case "additionalListOfHearingDocuments" -> caseData.setAdditionalListOfHearingDocuments(null);
-            case "generalApplicationDirectionsDocument" ->
-                caseData.getGeneralApplicationWrapper().setGeneralApplicationDirectionsDocument(null);
-            case "generalApplicationDocument" ->
-                caseData.getGeneralApplicationWrapper().setGeneralApplicationDocument(null);
-            case "generalApplicationDraftOrder" ->
-                caseData.getGeneralApplicationWrapper().setGeneralApplicationDraftOrder(null);
-            case "consentVariationOrderDocument" -> caseData.setConsentVariationOrderDocument(null);
-            case "additionalDocument" -> caseData.setAdditionalDocument(null);
-            case "refusalOrderPreviewDocument" -> caseData.setRefusalOrderPreviewDocument(null);
-            case "generalOrderPreviewDocument" ->
-                caseData.getGeneralOrderWrapper().setGeneralOrderPreviewDocument(null);
-            case "consentOrder" -> caseData.setConsentOrder(null);
-            case "consentD81Joint" -> caseData.getConsentOrderWrapper().setConsentD81Joint(null);
-            case "consentD81Applicant" -> caseData.getConsentOrderWrapper().setConsentD81Applicant(null);
-            case "consentD81Respondent" -> caseData.getConsentOrderWrapper().setConsentD81Respondent(null);
-            case "orderRefusalPreviewDocument" -> caseData.setOrderRefusalPreviewDocument(null);
-            case "interimUploadAdditionalDocument" ->
-                caseData.getInterimWrapper().setInterimUploadAdditionalDocument(null);
-            case "hearingOrderOtherDocument" -> caseData.getHearingOrderOtherDocuments().forEach(doc -> {
-                if (documentFileNamesToDelete.contains(doc.getValue().getDocumentFilename())) {
-                    caseData.getHearingOrderOtherDocuments().remove(doc);
-                }
-            });
-            case "additionalCicDocument" -> caseData.getAdditionalCicDocuments().forEach(doc -> {
-                if (documentFileNamesToDelete.contains(doc.getValue().getDocumentFilename())) {
-                    caseData.getAdditionalCicDocuments().remove(doc);
-                }
-            });
-            default -> errors.add("Unexpected value: " + document);
-        }
+        return GenericAboutToStartOrSubmitCallbackResponse.<FinremCaseData>builder().data(caseData).warnings(warnings).build();
     }
 
     private void getValidatedResponse(FinremCaseData caseData, List<String> warnings) {

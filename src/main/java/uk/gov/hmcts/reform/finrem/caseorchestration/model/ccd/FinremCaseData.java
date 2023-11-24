@@ -289,6 +289,7 @@ public class FinremCaseData {
     private List<HearingUploadBundleCollection> hearingUploadBundle;
     private SendOrderEventPostStateOption sendOrderPostStateOption;
     private DynamicMultiSelectList ordersToShare;
+    private DynamicMultiSelectList uploadedDocumentsToDelete;
     private DynamicMultiSelectList partiesOnCase;
     private List<ConfidentialUploadedDocumentData> confidentialDocumentsUploaded;
     private ChangeOrganisationRequest changeOrganisationRequestField;

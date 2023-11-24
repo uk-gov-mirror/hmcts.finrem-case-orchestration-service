@@ -33,6 +33,7 @@ public enum EventType {
     REJECT_GENERAL_APPLICATION("rejectGeneralApplication"),
     CLOSE("FR_close"),
     MANAGE_CASE_DOCUMENTS("FR_manageCaseDocuments"),
+    DELETE_UPLOADED_CASE_DOCUMENTS("FR_deleteUploadedDocuments"),
     UPLOAD_APPROVED_ORDER("FR_uploadApprovedOrder"),
     NEW_PAPER_CASE("FR_newPaperCase"),
     LIST_FOR_HEARING("FR_addSchedulingListingInfo"),
