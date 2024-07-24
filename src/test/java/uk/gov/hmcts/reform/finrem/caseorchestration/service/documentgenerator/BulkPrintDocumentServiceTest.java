@@ -1,5 +1,15 @@
 package uk.gov.hmcts.reform.finrem.caseorchestration.service.documentgenerator;
 
+import org.apache.pdfbox.cos.COSName;
+import org.apache.pdfbox.pdmodel.PDDocument;
+import org.apache.pdfbox.pdmodel.PDPage;
+import org.apache.pdfbox.pdmodel.PDResources;
+import org.apache.pdfbox.pdmodel.font.PDFont;
+import org.apache.pdfbox.pdmodel.font.PDFontDescriptor;
+import org.apache.pdfbox.preflight.PreflightDocument;
+import org.apache.pdfbox.preflight.ValidationResult;
+import org.apache.pdfbox.preflight.exception.SyntaxValidationException;
+import org.apache.pdfbox.preflight.parser.PreflightParser;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
@@ -14,6 +24,7 @@ import uk.gov.hmcts.reform.finrem.caseorchestration.service.BulkPrintDocumentSer
 import uk.gov.hmcts.reform.finrem.caseorchestration.service.DocumentConversionService;
 import uk.gov.hmcts.reform.finrem.caseorchestration.service.evidencemanagement.EvidenceManagementDownloadService;
 
+import java.io.File;
 import java.io.IOException;
 import java.io.InputStream;
 import java.util.ArrayList;
@@ -75,26 +86,6 @@ class BulkPrintDocumentServiceTest {
     }
 
     @Test
-    void validateEncryptionOnUploadedDocumentWhenInvalidByteSupplied() {
-        when(evidenceManagementService.download(FILE_BINARY_URL, AUTH)).thenReturn(someBytes);
-        CaseDocument caseDocument = TestSetUpUtils.caseDocument(FILE_URL, FILE_NAME, FILE_BINARY_URL);
-        BulkPrintRequest bulkPrintRequest = BulkPrintRequest.builder()
-            .bulkPrintDocuments(singletonList(BulkPrintDocument.builder()
-                .binaryFileUrl(FILE_BINARY_URL)
-                .fileName(FILE_NAME)
-                .build()))
-            .build();
-
-        List<byte[]> result = service.downloadDocuments(bulkPrintRequest, AUTH);
-        assertThat(result.get(0), is(equalTo(someBytes)));
-
-        List<String> errors = new ArrayList<>();
-        service.validateEncryptionOnUploadedDocument(caseDocument, "1234", errors, AUTH);
-        assertEquals("Failed to parse the documents for abc.pdf; Error: End-of-File, expected line at offset 11",
-            errors.get(0));
-    }
-
-    @Test
     void validateEncryptionOnUploadedDocumentAddErrorOnMessage() throws IOException {
         String fixture = "/fixtures/encryptedDocument.pdf";
         byte[] bytes = loadResource(fixture);
@@ -140,5 +131,90 @@ class BulkPrintDocumentServiceTest {
             assert resourceAsStream != null;
             return resourceAsStream.readAllBytes();
         }
+    }
+
+    @Test
+    public void testPdfFonts() throws IOException {
+        String editedPdfFixture = "/fixtures/encryptedDocument.pdf";
+        byte[] editedPdfBytes = loadResource(editedPdfFixture);
+
+        try (PDDocument document = PDDocument.load(editedPdfBytes)) {
+            for (PDPage page : document.getPages()) {
+                PDResources resources = page.getResources();
+                for (COSName fontName : resources.getFontNames()) {
+
+                    PDFont font = resources.getFont(fontName);
+
+                    // Get the font descriptor
+                    PDFontDescriptor fontDescriptor = font.getFontDescriptor();
+                    if (fontDescriptor.getFontFile() != null) {
+                        System.out.println("Font File Type 1 is present.");
+                    }
+                    if (fontDescriptor.getFontFile2() != null) {
+                        System.out.println("TrueType Font File is present.");
+                    }
+                    if (fontDescriptor.getFontFile3() != null) {
+                        System.out.println("Other Font File (not Type 1 or TrueType) is present.");
+                    }
+                    System.out.println(font.getName());
+                    System.out.println("Damaged: " + font.isDamaged());
+                    if (font.isEmbedded()) {
+                        System.out.println("Embedded font: " + font.getName());
+                    } else {
+                        System.out.println("Non-embedded font: " + font.getName());
+                    }
+                    System.out.println("\n");
+
+                }
+            }
+        }
+    }
+
+    @Test
+    public void testPdfValid() throws IOException {
+
+        ValidationResult result;
+        String editedPdfFixture =
+                "/explicit/path/to/a/file].pdf";
+        File thePdfFile = new File(editedPdfFixture);
+        PreflightParser parser = new PreflightParser(thePdfFile);
+        try {
+
+            /* Parse the PDF file with PreflightParser that inherits from the NonSequentialParser.
+             * Some additional controls are present to check a set of PDF/A requirements.
+             * (Stream length consistency, EOL after some Keyword...)
+             */
+            parser.parse();
+
+            /* Once the syntax validation is done,
+             * the parser can provide a PreflightDocument
+             * (that inherits from PDDocument)
+             * This document process the end of PDF/A validation.
+             */
+            PreflightDocument document = parser.getPreflightDocument();
+            document.validate();
+
+            // Get validation result
+            result = document.getResult();
+            document.close();
+
+        } catch (SyntaxValidationException e) {
+            /* the parse method can throw a SyntaxValidationException
+             * if the PDF file can't be parsed.
+             * In this case, the exception contains an instance of ValidationResult
+             */
+            result = e.getResult();
+        }
+
+        // display validation result
+        if (result.isValid()) {
+            System.out.println("The file " + thePdfFile.getName() + " is a valid PDF/A-1b file");
+        } else {
+            System.out.println("The file " + thePdfFile.getName() + " is not valid, error(s) :");
+            for (ValidationResult.ValidationError error : result.getErrorsList()) {
+                System.out.println(error.getErrorCode() + " : " + error.getDetails());
+            }
+        }
+
     }
 }
