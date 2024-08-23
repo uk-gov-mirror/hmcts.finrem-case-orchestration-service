@@ -74,49 +74,61 @@ public class ListForHearingContestedAboutToSubmitHandler extends FinremCallbackH
         String caseId = finremCaseDetails.getId().toString();
         log.info("Received request for validating a hearing for Case ID: {}", caseId);
 
+        //Checks here for errors. This is where it checks to see if both solicitors have been checked.
         List<String> errors = validateHearingService.validateHearingErrors(finremCaseDetails);
 
         if (!errors.isEmpty()) {
             return GenericAboutToStartOrSubmitCallbackResponse.<FinremCaseData>builder().errors(errors).build();
         }
 
+        //if there are additional list of hearing docs
         if (finremCaseData.getAdditionalListOfHearingDocuments() != null) {
             CaseDocument caseDocument = objectMapper.convertValue(finremCaseData.getAdditionalListOfHearingDocuments(),
                 CaseDocument.class);
             CaseDocument pdfDocument = additionalHearingDocumentService.convertToPdf(caseDocument, userAuthorisation, caseId);
             finremCaseData.setAdditionalListOfHearingDocuments(pdfDocument);
+            //add the additional list of hearing
         }
+        //map to casedetails
         CaseDetails caseDetails = finremCaseDetailsMapper.mapToCaseDetails(finremCaseDetails);
+        //if they already had first hearing and contested application
         if (hearingDocumentService.alreadyHadFirstHearing(finremCaseDetails)) {
             if (caseDataService.isContestedApplication(finremCaseDetails)) {
                 try {
+                    //try creating additional hearing doc
                     additionalHearingDocumentService.createAdditionalHearingDocuments(userAuthorisation, caseDetails);
                 } catch (JsonProcessingException e) {
                     throw new RuntimeException(e);
                 }
             }
-        } else {
+        }
+        //otherwise generate hearing docs
+        else {
             caseDetails.getData().putAll(hearingDocumentService.generateHearingDocuments(userAuthorisation, caseDetails));
         }
 
-
+        //map again
         finremCaseDetails = finremCaseDetailsMapper.mapToFinremCaseDetails(caseDetails);
         finremCaseData = finremCaseDetails.getData();
         List<String> warnings = validateHearingService.validateHearingWarnings(finremCaseDetails);
         log.info("Hearing date warning {} Case ID: {}", warnings, caseId);
 
+        //If the applicant doesn't have a solicitor
         if (!notificationService.isApplicantSolicitorDigitalAndEmailPopulated(finremCaseDetails)) {
             CaseDocument coverSheet = coverSheetService.generateApplicantCoverSheet(finremCaseDetails, userAuthorisation);
             log.info("Applicant coversheet generated and attach to case {}  for Case ID: {}", caseId, coverSheet);
             populateApplicantBulkPrintFieldsWithCoverSheet(finremCaseData, caseId, coverSheet);
         }
 
+        //if the respondent doesn't have a solicitor
         if (!notificationService.isRespondentSolicitorDigitalAndEmailPopulated(finremCaseDetails)) {
             CaseDocument coverSheet = coverSheetService.generateRespondentCoverSheet(finremCaseDetails, userAuthorisation);
             log.info("Respondent coversheet generated and attach to case {}  for Case ID: {}", caseId, coverSheet);
             populateRespondentBulkPrintFieldsWithCoverSheet(finremCaseData, coverSheet, caseId);
         }
         callbackRequest.getCaseDetails().setData(finremCaseData);
+
+        //Where we send to different parties
         contestedListForHearingCorrespondenceService.sendHearingCorrespondence(callbackRequest, userAuthorisation);
 
         return GenericAboutToStartOrSubmitCallbackResponse.<FinremCaseData>builder()

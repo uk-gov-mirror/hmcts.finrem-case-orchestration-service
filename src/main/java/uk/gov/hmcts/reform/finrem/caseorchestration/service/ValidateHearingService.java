@@ -11,8 +11,6 @@ import java.time.LocalDate;
 import java.util.ArrayList;
 import java.util.List;
 
-import static uk.gov.hmcts.reform.finrem.caseorchestration.service.HearingDocumentService.HEARING_DEFAULT_CORRESPONDENCE_ERROR_MESSAGE;
-
 @Service
 @Slf4j
 @RequiredArgsConstructor
@@ -41,9 +39,9 @@ public class ValidateHearingService {
         }
 
         selectablePartiesCorrespondenceService.setPartiesToReceiveCorrespondence(finremCaseDetails.getData());
-        errors.addAll(selectablePartiesCorrespondenceService
-            .validateApplicantAndRespondentCorrespondenceAreSelected(finremCaseDetails.getData(),
-            HEARING_DEFAULT_CORRESPONDENCE_ERROR_MESSAGE));
+//        errors.addAll(selectablePartiesCorrespondenceService
+//            .validateApplicantAndRespondentCorrespondenceAreSelected(finremCaseDetails.getData(),
+//            HEARING_DEFAULT_CORRESPONDENCE_ERROR_MESSAGE));
         return errors;
     }
 

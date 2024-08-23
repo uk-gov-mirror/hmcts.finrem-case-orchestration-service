@@ -36,6 +36,7 @@ public class ContestedListForHearingCorrespondenceService {
             EventType.LIST_FOR_HEARING, caseDetails.getId());
         FinremCaseDetails caseDetailsBefore = callbackRequest.getCaseDetailsBefore();
 
+        //set parties
         selectablePartiesCorrespondenceService.setPartiesToReceiveCorrespondence(caseDetails.getData());
 
         if (caseDetailsBefore != null && caseDetailsBefore.getData().getFormC() != null) {
