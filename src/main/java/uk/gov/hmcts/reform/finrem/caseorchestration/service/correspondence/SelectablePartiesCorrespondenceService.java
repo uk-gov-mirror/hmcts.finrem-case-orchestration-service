@@ -20,7 +20,7 @@ public class SelectablePartiesCorrespondenceService {
 
     private final FinremCaseDetailsMapper finremCaseDetailsMapper;
 
-    public void setPartiesToReceiveCorrespondence(FinremCaseData data,  List<String> selectedParties) {
+    public void setPartiesToReceiveCorrespondence(FinremCaseData data, List<String> selectedParties) {
         if (selectedParties != null && !selectedParties.isEmpty()) {
             log.info("Setting parties to receive correspondence {} on Case ID: {}", selectedParties, data.getCcdCaseId());
             data.setApplicantCorrespondenceEnabled(
@@ -107,7 +107,7 @@ public class SelectablePartiesCorrespondenceService {
 
     public List<String> validateApplicantAndRespondentCorrespondenceAreSelected(FinremCaseData data, String errorMessage) {
         List<String> errors = new ArrayList<>();
-        if (!data.isApplicantCorrespondenceEnabled() || !data.isRespondentCorrespondenceEnabled()) {
+        if (!data.isApplicantCorrespondenceEnabled() && !data.isRespondentCorrespondenceEnabled()) {
             errors.add(errorMessage);
         }
         return errors;
