@@ -33,7 +33,7 @@ import static uk.gov.hmcts.reform.finrem.caseorchestration.service.CaseHearingFu
 @RequiredArgsConstructor
 public class HearingDocumentService {
 
-    protected static final String HEARING_DEFAULT_CORRESPONDENCE_ERROR_MESSAGE = "This listing notice must be sent to the applicant and respondent"
+    protected static final String HEARING_DEFAULT_CORRESPONDENCE_ERROR_MESSAGE = "This listing notice must be sent to either the applicant or respondent"
         + " as default. If this listing needs to be sent to only one of these parties please use the general order event.";
     private final GenericDocumentService genericDocumentService;
     private final DocumentConfiguration documentConfiguration;
