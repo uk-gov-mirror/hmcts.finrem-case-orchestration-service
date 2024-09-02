@@ -81,58 +81,87 @@ public class ListForHearingContestedAboutToSubmitHandler extends FinremCallbackH
             return GenericAboutToStartOrSubmitCallbackResponse.<FinremCaseData>builder().errors(errors).build();
         }
 
-        //if there are additional list of hearing docs
+        if (finremCaseData.isApplicantCorrespondenceEnabled()) {
+            processApplicantHearingDetails(finremCaseDetails, finremCaseData, userAuthorisation, caseId);
+
+        }
+
+        if (finremCaseData.isRespondentCorrespondenceEnabled()) {
+            processRespondentHearingDetails(finremCaseDetails, finremCaseData, userAuthorisation, caseId);
+
+        }
+
+        List<String> warnings = validateHearingService.validateHearingWarnings(finremCaseDetails);
+        log.info("Hearing date warning {} Case ID: {}", warnings, caseId);
+
+        callbackRequest.getCaseDetails().setData(finremCaseData);
+
+        return GenericAboutToStartOrSubmitCallbackResponse.<FinremCaseData>builder()
+            .data(finremCaseData).warnings(warnings).build();
+    }
+
+    private void processApplicantHearingDetails(FinremCaseDetails finremCaseDetails, FinremCaseData finremCaseData, String userAuthorisation, String caseId) {
+
+        // If there are additional list of hearing docs for the applicant
         if (finremCaseData.getAdditionalListOfHearingDocuments() != null) {
             CaseDocument caseDocument = objectMapper.convertValue(finremCaseData.getAdditionalListOfHearingDocuments(),
                 CaseDocument.class);
             CaseDocument pdfDocument = additionalHearingDocumentService.convertToPdf(caseDocument, userAuthorisation, caseId);
             finremCaseData.setAdditionalListOfHearingDocuments(pdfDocument);
-            //add the additional list of hearing
         }
-        //map to casedetails
+
+        // Generate hearing documents for the applicant
         CaseDetails caseDetails = finremCaseDetailsMapper.mapToCaseDetails(finremCaseDetails);
-        //if they already had first hearing and contested application
         if (hearingDocumentService.alreadyHadFirstHearing(finremCaseDetails)) {
             if (caseDataService.isContestedApplication(finremCaseDetails)) {
                 try {
-                    //try creating additional hearing doc
                     additionalHearingDocumentService.createAdditionalHearingDocuments(userAuthorisation, caseDetails);
                 } catch (JsonProcessingException e) {
                     throw new RuntimeException(e);
                 }
             }
-        }
-        //otherwise generate hearing docs
-        else {
+        } else {
             caseDetails.getData().putAll(hearingDocumentService.generateHearingDocuments(userAuthorisation, caseDetails));
         }
 
-        //map again
-        finremCaseDetails = finremCaseDetailsMapper.mapToFinremCaseDetails(caseDetails);
-        finremCaseData = finremCaseDetails.getData();
-        List<String> warnings = validateHearingService.validateHearingWarnings(finremCaseDetails);
-        log.info("Hearing date warning {} Case ID: {}", warnings, caseId);
-
-        //If the applicant doesn't have a solicitor
+        // Handle case where the applicant doesn't have a solicitor
         if (!notificationService.isApplicantSolicitorDigitalAndEmailPopulated(finremCaseDetails)) {
             CaseDocument coverSheet = coverSheetService.generateApplicantCoverSheet(finremCaseDetails, userAuthorisation);
-            log.info("Applicant coversheet generated and attach to case {}  for Case ID: {}", caseId, coverSheet);
+            log.info("Applicant coversheet generated and attached to case {} for Case ID: {}", caseId, coverSheet);
             populateApplicantBulkPrintFieldsWithCoverSheet(finremCaseData, caseId, coverSheet);
         }
+    }
 
-        //if the respondent doesn't have a solicitor
+    private void processRespondentHearingDetails(FinremCaseDetails finremCaseDetails, FinremCaseData finremCaseData, String userAuthorisation, String caseId) {
+
+        // If there are additional list of hearing docs for the respondent
+        if (finremCaseData.getAdditionalListOfHearingDocuments() != null) {
+            CaseDocument caseDocument = objectMapper.convertValue(finremCaseData.getAdditionalListOfHearingDocuments(),
+                CaseDocument.class);
+            CaseDocument pdfDocument = additionalHearingDocumentService.convertToPdf(caseDocument, userAuthorisation, caseId);
+            finremCaseData.setAdditionalListOfHearingDocuments(pdfDocument);
+        }
+
+        // Generate hearing documents for the respondent
+        CaseDetails caseDetails = finremCaseDetailsMapper.mapToCaseDetails(finremCaseDetails);
+        if (hearingDocumentService.alreadyHadFirstHearing(finremCaseDetails)) {
+            if (caseDataService.isContestedApplication(finremCaseDetails)) {
+                try {
+                    additionalHearingDocumentService.createAdditionalHearingDocuments(userAuthorisation, caseDetails);
+                } catch (JsonProcessingException e) {
+                    throw new RuntimeException(e);
+                }
+            }
+        } else {
+            caseDetails.getData().putAll(hearingDocumentService.generateHearingDocuments(userAuthorisation, caseDetails));
+        }
+
+        // Handle case where the respondent doesn't have a solicitor
         if (!notificationService.isRespondentSolicitorDigitalAndEmailPopulated(finremCaseDetails)) {
             CaseDocument coverSheet = coverSheetService.generateRespondentCoverSheet(finremCaseDetails, userAuthorisation);
-            log.info("Respondent coversheet generated and attach to case {}  for Case ID: {}", caseId, coverSheet);
+            log.info("Respondent coversheet generated and attached to case {} for Case ID: {}", caseId, coverSheet);
             populateRespondentBulkPrintFieldsWithCoverSheet(finremCaseData, coverSheet, caseId);
         }
-        callbackRequest.getCaseDetails().setData(finremCaseData);
-
-        //Where we send to different parties
-        contestedListForHearingCorrespondenceService.sendHearingCorrespondence(callbackRequest, userAuthorisation);
-
-        return GenericAboutToStartOrSubmitCallbackResponse.<FinremCaseData>builder()
-            .data(finremCaseData).warnings(warnings).build();
     }
 
     private void populateApplicantBulkPrintFieldsWithCoverSheet(FinremCaseData finremCaseData, String caseId, CaseDocument coverSheet) {
