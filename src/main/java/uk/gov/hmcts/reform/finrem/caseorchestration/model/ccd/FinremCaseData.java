@@ -195,6 +195,7 @@ public class FinremCaseData implements HasCaseDocument {
     private YesOrNo additionalPropertyOrderDecision;
     @JsonProperty("propertyAdjutmentOrderDetail")
     private List<PropertyAdjustmentOrderCollection> propertyAdjustmentOrderDetail;
+    private List<DocumentToKeepCollection> documentToKeepCollection;
     private YesOrNo paymentForChildrenDecision;
     private YesOrNo benefitForChildrenDecision;
     private List<BenefitPayment> benefitPaymentChecklist;
@@ -212,6 +213,8 @@ public class FinremCaseData implements HasCaseDocument {
     private String specificArrangementsRequired;
     private YesOrNo isApplicantsHomeCourt;
     private String reasonForLocalCourt;
+    private YesOrNo allocatedToBeHeardAtHighCourtJudgeLevel;
+    private String allocatedToBeHeardAtHighCourtJudgeLevelText;
     private String mediatorRegistrationNumber;
     private String familyMediatorServiceName;
     private String soleTraderName;
@@ -434,7 +437,7 @@ public class FinremCaseData implements HasCaseDocument {
     private CaseFlagsWrapper caseFlagsWrapper;
 
     private String previousState;
-
+    private DynamicList userCaseAccessList;
 
     @JsonIgnore
     public CaseFlagsWrapper getCaseFlagsWrapper() {
