@@ -1,6 +1,5 @@
 package uk.gov.hmcts.reform.finrem.caseorchestration.service;
 
-import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -12,6 +11,8 @@ import org.springframework.stereotype.Service;
 import org.springframework.util.StringUtils;
 import org.springframework.web.client.HttpClientErrorException;
 import uk.gov.hmcts.reform.ccd.client.model.CaseDetails;
+import uk.gov.hmcts.reform.finrem.caseorchestration.config.CourtDetails;
+import uk.gov.hmcts.reform.finrem.caseorchestration.config.CourtDetailsConfiguration;
 import uk.gov.hmcts.reform.finrem.caseorchestration.config.NotificationServiceConfiguration;
 import uk.gov.hmcts.reform.finrem.caseorchestration.mapper.FinremNotificationRequestMapper;
 import uk.gov.hmcts.reform.finrem.caseorchestration.mapper.NotificationRequestMapper;
@@ -28,13 +29,12 @@ import uk.gov.hmcts.reform.finrem.caseorchestration.notifications.service.EmailS
 import uk.gov.hmcts.reform.finrem.caseorchestration.service.evidencemanagement.EvidenceManagementDownloadService;
 import uk.gov.hmcts.reform.finrem.caseorchestration.service.noc.solicitors.CheckSolicitorIsDigitalService;
 
-import java.io.IOException;
-import java.util.HashMap;
 import java.util.Map;
 import java.util.Objects;
 import java.util.function.BooleanSupplier;
 import java.util.function.Supplier;
 
+import static java.util.Optional.ofNullable;
 import static uk.gov.hmcts.reform.finrem.caseorchestration.OrchestrationConstants.NO_VALUE;
 import static uk.gov.hmcts.reform.finrem.caseorchestration.OrchestrationConstants.YES_VALUE;
 import static uk.gov.hmcts.reform.finrem.caseorchestration.model.ccd.CCDConfigConstant.APP_SOLICITOR_AGREE_TO_RECEIVE_EMAILS_CONSENTED;
@@ -42,7 +42,6 @@ import static uk.gov.hmcts.reform.finrem.caseorchestration.model.ccd.CCDConfigCo
 import static uk.gov.hmcts.reform.finrem.caseorchestration.model.ccd.CCDConfigConstant.CONSENTED_SOLICITOR_NAME;
 import static uk.gov.hmcts.reform.finrem.caseorchestration.model.ccd.CCDConfigConstant.CONTESTED_SOLICITOR_EMAIL;
 import static uk.gov.hmcts.reform.finrem.caseorchestration.model.ccd.CCDConfigConstant.CONTESTED_SOLICITOR_NAME;
-import static uk.gov.hmcts.reform.finrem.caseorchestration.model.ccd.CCDConfigConstant.COURT_DETAILS_EMAIL_KEY;
 import static uk.gov.hmcts.reform.finrem.caseorchestration.model.ccd.CCDConfigConstant.GENERAL_APPLICATION_REFERRED_DETAIL;
 import static uk.gov.hmcts.reform.finrem.caseorchestration.model.ccd.CCDConfigConstant.GENERAL_APPLICATION_REFER_TO_JUDGE_EMAIL;
 import static uk.gov.hmcts.reform.finrem.caseorchestration.model.ccd.CCDConfigConstant.GENERAL_EMAIL_RECIPIENT;
@@ -68,6 +67,7 @@ import static uk.gov.hmcts.reform.finrem.caseorchestration.notifications.domain.
 import static uk.gov.hmcts.reform.finrem.caseorchestration.notifications.domain.EmailTemplateNames.FR_CONTESTED_CONSENT_ORDER_APPROVED;
 import static uk.gov.hmcts.reform.finrem.caseorchestration.notifications.domain.EmailTemplateNames.FR_CONTESTED_CONSENT_ORDER_NOT_APPROVED;
 import static uk.gov.hmcts.reform.finrem.caseorchestration.notifications.domain.EmailTemplateNames.FR_CONTESTED_DRAFT_ORDER;
+import static uk.gov.hmcts.reform.finrem.caseorchestration.notifications.domain.EmailTemplateNames.FR_CONTESTED_DRAFT_ORDER_READY_FOR_REVIEW_JUDGE;
 import static uk.gov.hmcts.reform.finrem.caseorchestration.notifications.domain.EmailTemplateNames.FR_CONTESTED_GENERAL_APPLICATION_OUTCOME;
 import static uk.gov.hmcts.reform.finrem.caseorchestration.notifications.domain.EmailTemplateNames.FR_CONTESTED_GENERAL_APPLICATION_REFER_TO_JUDGE;
 import static uk.gov.hmcts.reform.finrem.caseorchestration.notifications.domain.EmailTemplateNames.FR_CONTESTED_GENERAL_EMAIL;
@@ -98,7 +98,6 @@ import static uk.gov.hmcts.reform.finrem.caseorchestration.notifications.domain.
 import static uk.gov.hmcts.reform.finrem.caseorchestration.notifications.domain.EmailTemplateNames.FR_REJECT_GENERAL_APPLICATION;
 import static uk.gov.hmcts.reform.finrem.caseorchestration.notifications.domain.EmailTemplateNames.FR_TRANSFER_TO_LOCAL_COURT;
 import static uk.gov.hmcts.reform.finrem.caseorchestration.service.CaseDataService.nullToEmpty;
-import static uk.gov.hmcts.reform.finrem.caseorchestration.service.CaseHearingFunctions.getCourtDetailsString;
 
 @Service
 @Slf4j
@@ -118,6 +117,7 @@ public class NotificationService {
     private final CaseDataService caseDataService;
     private final CheckSolicitorIsDigitalService checkSolicitorIsDigitalService;
     private final EvidenceManagementDownloadService evidenceManagementDownloadService;
+    private final CourtDetailsConfiguration courtDetailsConfiguration;
 
     /**
      * No Return.
@@ -139,7 +139,6 @@ public class NotificationService {
             finremNotificationRequestMapper.getNotificationRequestForApplicantSolicitor(caseDetails);
         log.info(HWF_LOG, notificationRequest.getCaseReferenceNumber());
         sendNotificationEmail(notificationRequest, FR_HWF_SUCCESSFUL);
-
     }
 
     /**
@@ -182,7 +181,7 @@ public class NotificationService {
      * No Return.
      * <p>Please use @{@link #sendAssignToJudgeConfirmationEmailToIntervenerSolicitor(FinremCaseDetails, SolicitorCaseDataKeysWrapper)}</p>
      *
-     * @param caseDetails instance of CaseDetails
+     * @param caseDetails     instance of CaseDetails
      * @param dataKeysWrapper instance of SolicitorCaseDataKeysWrapper
      * @deprecated Use {@link CaseDetails caseDetails, SolicitorCaseDataKeysWrapper dataKeysWrapper}
      */
@@ -559,7 +558,7 @@ public class NotificationService {
 
         NotificationRequest notificationRequest =
             notificationRequestMapper.getNotificationRequestForIntervenerSolicitor(caseDetails,
-            dataKeysWrapper);
+                dataKeysWrapper);
         log.info("Received request to send notification email to intervener for 'List for hearing'. Case ID : {}",
             notificationRequest.getCaseReferenceNumber());
         emailService.sendConfirmationEmail(notificationRequest, FR_CONTESTED_PREPARE_FOR_HEARING_INTERVENER_SOL);
@@ -700,7 +699,6 @@ public class NotificationService {
             notificationRequest);
         final EmailTemplateNames templateName = (hasAttachment) ? FR_CONSENT_GENERAL_EMAIL_ATTACHMENT : FR_CONSENT_GENERAL_EMAIL;
         emailService.sendConfirmationEmail(notificationRequest, templateName);
-
     }
 
     private boolean downloadGeneralEmailUploadedDocument(FinremCaseDetails caseDetails,
@@ -1120,16 +1118,8 @@ public class NotificationService {
      * @deprecated Use {@link CaseDetails caseDetails}
      */
     @Deprecated(since = "15-june-2023")
-    public void sendContestedGeneralApplicationOutcomeEmail(CaseDetails caseDetails) throws IOException {
-        String recipientEmail = DEFAULT_EMAIL;
-        if (featureToggleService.isSendToFRCEnabled()) {
-            Map<String, Object> data = caseDetails.getData();
-            Map<String, Object> courtDetailsMap = objectMapper.readValue(getCourtDetailsString(), HashMap.class);
-            Map<String, Object> courtDetails = (Map<String, Object>) courtDetailsMap.get(data.get(CaseHearingFunctions.getSelectedCourt(data)));
-
-            recipientEmail = (String) courtDetails.get(COURT_DETAILS_EMAIL_KEY);
-        }
-
+    public void sendContestedGeneralApplicationOutcomeEmail(CaseDetails caseDetails) {
+        String recipientEmail = getRecipientEmail(caseDetails);
         NotificationRequest notificationRequest = notificationRequestMapper.getNotificationRequestForApplicantSolicitor(caseDetails);
         notificationRequest.setNotificationEmail(recipientEmail);
         log.info("Received request for notification email for Contested General Application Outcome, Case ID : {}",
@@ -1137,14 +1127,8 @@ public class NotificationService {
         emailService.sendConfirmationEmail(notificationRequest, FR_CONTESTED_GENERAL_APPLICATION_OUTCOME);
     }
 
-    public void sendContestedGeneralApplicationOutcomeEmail(FinremCaseDetails caseDetails) throws IOException {
-        String recipientEmail = DEFAULT_EMAIL;
-        if (featureToggleService.isSendToFRCEnabled()) {
-            Map<String, Object> courtDetailsMap = objectMapper.readValue(getCourtDetailsString(), HashMap.class);
-            Map<String, Object> courtDetails = (Map<String, Object>) courtDetailsMap.get(caseDetails.getData().getSelectedAllocatedCourt());
-            recipientEmail = (String) courtDetails.get(COURT_DETAILS_EMAIL_KEY);
-        }
-
+    public void sendContestedGeneralApplicationOutcomeEmail(FinremCaseDetails caseDetails) {
+        String recipientEmail = getRecipientEmail(caseDetails);
         NotificationRequest notificationRequest = finremNotificationRequestMapper.getNotificationRequestForApplicantSolicitor(caseDetails);
         notificationRequest.setNotificationEmail(recipientEmail);
         log.info("Received request for notification email for Contested General Application Outcome, Case ID : {}",
@@ -1431,7 +1415,7 @@ public class NotificationService {
      * @deprecated Use {@link CaseDetails caseDetails}
      */
     @Deprecated(since = "15-june-2023")
-    public void sendUpdateFrcInformationEmailToCourt(CaseDetails caseDetails) throws JsonProcessingException {
+    public void sendUpdateFrcInformationEmailToCourt(CaseDetails caseDetails) {
         String recipientEmail = getRecipientEmail(caseDetails);
 
         NotificationRequest notificationRequest = notificationRequestMapper.getNotificationRequestForApplicantSolicitor(caseDetails);
@@ -1440,7 +1424,7 @@ public class NotificationService {
         emailService.sendConfirmationEmail(notificationRequest, FR_CONTESTED_UPDATE_FRC_COURT);
     }
 
-    public void sendUpdateFrcInformationEmailToCourt(FinremCaseDetails caseDetails) throws JsonProcessingException {
+    public void sendUpdateFrcInformationEmailToCourt(FinremCaseDetails caseDetails) {
         String recipientEmail = getRecipientEmail(caseDetails);
 
         NotificationRequest notificationRequest = finremNotificationRequestMapper.getNotificationRequestForApplicantSolicitor(caseDetails);
@@ -1865,25 +1849,26 @@ public class NotificationService {
      * @deprecated Use {@link CaseDetails caseDetails}
      */
     @Deprecated(since = "15-june-2023")
-    private String getRecipientEmail(CaseDetails caseDetails) throws JsonProcessingException {
+    private String getRecipientEmail(CaseDetails caseDetails) {
         if (featureToggleService.isSendToFRCEnabled()) {
             Map<String, Object> data = caseDetails.getData();
-            Map<String, Object> courtDetailsMap = objectMapper.readValue(getCourtDetailsString(), HashMap.class);
-            Map<String, Object> courtDetails = (Map<String, Object>) courtDetailsMap.get(data.get(CaseHearingFunctions.getSelectedCourt(data)));
-
-            return (String) courtDetails.get(COURT_DETAILS_EMAIL_KEY);
+            return getRecipientEmailFromSelectedCourt((String) data.get(CaseHearingFunctions.getSelectedCourt(data)));
         }
         return DEFAULT_EMAIL;
     }
 
-    private String getRecipientEmail(FinremCaseDetails caseDetails) throws JsonProcessingException {
+    private String getRecipientEmail(FinremCaseDetails caseDetails) {
         if (featureToggleService.isSendToFRCEnabled()) {
-            Map<String, Object> courtDetailsMap = objectMapper.readValue(getCourtDetailsString(), HashMap.class);
-            Map<String, Object> courtDetails = (Map<String, Object>) courtDetailsMap.get(caseDetails.getData().getSelectedAllocatedCourt());
-
-            return (String) courtDetails.get(COURT_DETAILS_EMAIL_KEY);
+            String selectedAllocatedCourt = caseDetails.getData().getSelectedAllocatedCourt();
+            return getRecipientEmailFromSelectedCourt(selectedAllocatedCourt);
         }
         return DEFAULT_EMAIL;
+    }
+
+    public String getRecipientEmailFromSelectedCourt(String selectedAllocatedCourt) {
+        return ofNullable(courtDetailsConfiguration.getCourts().get(selectedAllocatedCourt))
+            .map(CourtDetails::getEmail)
+            .orElse(DEFAULT_EMAIL);
     }
 
     private EmailTemplateNames getIntervenerSendOrderContestedTemplate(IntervenerType intervener) {
@@ -1904,5 +1889,10 @@ public class NotificationService {
                 return FR_CONTEST_ORDER_APPROVED_INTERVENER1;
             }
         }
+    }
+
+    public void sendContestedReadyToReviewOrderToJudge(NotificationRequest judgeNotificationRequest) {
+        log.info("{} - Sending ready for review email to judge.", judgeNotificationRequest.getCaseReferenceNumber());
+        emailService.sendConfirmationEmail(judgeNotificationRequest, FR_CONTESTED_DRAFT_ORDER_READY_FOR_REVIEW_JUDGE);
     }
 }

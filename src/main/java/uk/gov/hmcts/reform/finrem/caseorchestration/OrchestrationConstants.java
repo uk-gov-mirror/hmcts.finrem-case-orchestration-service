@@ -52,7 +52,6 @@ public class OrchestrationConstants {
 
     // VARIATION ORDER RELATED
 
-    public static final String APPLICANT_INTENDS = "applicantIntendsTo";
     public static final String VARIATION_ORDER = "Variation Order";
     public static final String CV_ORDER_CAMELCASE_LABEL_FIELD = "consentVariationOrderLabelC";
     public static final String VARIATION_ORDER_CAMELCASE_LABEL_VALUE = "Consent / Variation Order";
