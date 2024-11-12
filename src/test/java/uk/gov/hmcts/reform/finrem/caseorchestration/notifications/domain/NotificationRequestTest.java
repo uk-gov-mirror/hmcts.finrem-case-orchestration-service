@@ -3,6 +3,8 @@ package uk.gov.hmcts.reform.finrem.caseorchestration.notifications.domain;
 import org.junit.Test;
 import uk.gov.hmcts.reform.finrem.caseorchestration.model.notification.NotificationRequest;
 
+import java.util.Collections;
+
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertNull;
 import static uk.gov.hmcts.reform.finrem.caseorchestration.notifications.NotificationConstants.PHONE_OPENING_HOURS;
@@ -20,7 +22,7 @@ public class NotificationRequestTest {
             "Consent",
             "rejectedReason", "app", "res",
             "1234567890", "", "", "",
-            "", null, null, "1999-08-06");
+            "", null, "1999-08-06", Collections.emptyList());
         assertEquals("123456", underTest.getCaseReferenceNumber());
         assertEquals("45623", underTest.getSolicitorReferenceNumber());
         assertEquals("D123", underTest.getDivorceCaseNumber());

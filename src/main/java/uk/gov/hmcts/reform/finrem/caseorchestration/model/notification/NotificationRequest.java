@@ -7,6 +7,9 @@ import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 
+import java.util.ArrayList;
+import java.util.List;
+
 @Data
 @Builder
 @AllArgsConstructor
@@ -51,10 +54,9 @@ public class NotificationRequest {
     private String intervenerFullName;
     @JsonProperty("intervenerSolicitorFirm")
     private String intervenerSolicitorFirm;
-    @JsonProperty("")
-    private byte[] documentContents;
     @JsonProperty("isNotDigital")
     private Boolean isNotDigital;
     @JsonProperty("hearingDate")
     private String hearingDate;
+    private List<NotificationRequestFile> files = new ArrayList<>();
 }

@@ -2,10 +2,13 @@ package uk.gov.hmcts.reform.finrem.caseorchestration.notifications.service;
 
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.apache.commons.collections4.CollectionUtils;
+import org.apache.tika.utils.StringUtils;
 import org.json.JSONObject;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 import uk.gov.hmcts.reform.finrem.caseorchestration.model.notification.NotificationRequest;
+import uk.gov.hmcts.reform.finrem.caseorchestration.model.notification.NotificationRequestFile;
 import uk.gov.hmcts.reform.finrem.caseorchestration.notifications.client.EmailClient;
 import uk.gov.hmcts.reform.finrem.caseorchestration.notifications.domain.EmailTemplateNames;
 import uk.gov.hmcts.reform.finrem.caseorchestration.notifications.domain.EmailToSend;
@@ -14,6 +17,7 @@ import uk.gov.service.notify.NotificationClientException;
 
 import java.util.HashMap;
 import java.util.Map;
+import java.util.Optional;
 import java.util.UUID;
 
 import static org.apache.commons.lang3.ObjectUtils.isEmpty;
@@ -98,10 +102,6 @@ public class EmailService {
             || GENERAL_APPLICATION_REFER_TO_JUDGE.equals(templateName)) {
             templateVars.put("generalEmailBody", notificationRequest.getGeneralEmailBody());
         }
-        if (CONSENT_GENERAL_EMAIL_ATTACHMENT.equals(templateName)
-            || CONTESTED_GENERAL_EMAIL_ATTACHMENT.equals(templateName)) {
-            templateVars.put("link_to_file", preparedForEmailAttachment(notificationRequest.getDocumentContents()));
-        }
 
         if (CONSENTED.equals(notificationRequest.getCaseType()) && !FR_CONSENT_ORDER_AVAILABLE_CTSC.equals(templateName)) {
             templateVars.put(PHONE_OPENING_HOURS, notificationRequest.getPhoneOpeningHours());
@@ -131,8 +131,22 @@ public class EmailService {
 
         setIntervenerSolicitorDetails(notificationRequest, templateName, templateVars);
 
+        if (CollectionUtils.isNotEmpty(notificationRequest.getFiles())) {
+            templateVars.putAll(getFiles(notificationRequest));
+        }
+
         templateVars.putAll(emailTemplateVars.get(templateName));
         return templateVars;
+    }
+
+    private Map<String, Object> getFiles(NotificationRequest notificationRequest) {
+        Map<String, Object> files = new HashMap<>();
+        notificationRequest.getFiles().forEach(notificationRequestFile ->
+            Optional.ofNullable(prepareForEmailAttachment(notificationRequestFile))
+            .ifPresent(f -> files.put(notificationRequestFile.getTemplatePlaceholder(), f))
+        );
+
+        return files;
     }
 
     private void setIntervenerSolicitorDetails(NotificationRequest notificationRequest, String templateName, Map<String, Object> templateVars) {
@@ -169,20 +183,22 @@ public class EmailService {
         }
     }
 
-    private JSONObject preparedForEmailAttachment(final byte[] documentContents) {
+    private JSONObject prepareForEmailAttachment(NotificationRequestFile notificationRequestFile) {
         try {
-            if (documentContents != null) {
-                return NotificationClient.prepareUpload(documentContents);
+            if (StringUtils.isBlank(notificationRequestFile.getFilename())) {
+                return NotificationClient.prepareUpload(notificationRequestFile.getFileContents());
+            } else {
+                return NotificationClient.prepareUpload(notificationRequestFile.getFileContents(),
+                    notificationRequestFile.getFilename());
             }
         } catch (NotificationClientException e) {
-            log.warn("Failed to attach document to email", e);
+            log.warn("Failed to attach document {} to email", notificationRequestFile.getFilename(), e);
+            return null;
         }
-        return null;
     }
 
     private void addJudgeReadyToReviewTemplateVars(NotificationRequest notificationRequest,
                                                    Map<String, Object> templateVars) {
         templateVars.put("hearingDate", notificationRequest.getHearingDate());
     }
-
 }

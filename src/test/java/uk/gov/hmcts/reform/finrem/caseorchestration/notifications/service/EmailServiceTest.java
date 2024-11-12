@@ -17,6 +17,7 @@ import org.springframework.test.context.junit4.SpringRunner;
 import uk.gov.hmcts.reform.finrem.caseorchestration.CaseOrchestrationApplication;
 import uk.gov.hmcts.reform.finrem.caseorchestration.integrationtest.IntegrationTest;
 import uk.gov.hmcts.reform.finrem.caseorchestration.model.notification.NotificationRequest;
+import uk.gov.hmcts.reform.finrem.caseorchestration.model.notification.NotificationRequestFile;
 import uk.gov.hmcts.reform.finrem.caseorchestration.notifications.client.EmailClient;
 import uk.gov.service.notify.NotificationClientException;
 
@@ -486,11 +487,10 @@ public class EmailServiceTest {
     public void shouldBuildTemplateVarsForGeneralEmailAttachmentConsented() {
         setConsentedData();
         notificationRequest.setGeneralEmailBody("test email body");
-        notificationRequest.setDocumentContents(new byte[5]);
+        notificationRequest.getFiles().add(createAttachment("link_to_file"));
 
-        Map<String, Object> returnedTemplateVars =
-
-            emailService.buildTemplateVars(notificationRequest, FR_CONSENT_GENERAL_EMAIL_ATTACHMENT.name());
+        Map<String, Object> returnedTemplateVars = emailService.buildTemplateVars(notificationRequest,
+            FR_CONSENT_GENERAL_EMAIL_ATTACHMENT.name());
 
         assertNull(returnedTemplateVars.get("courtName"));
         assertNull(returnedTemplateVars.get("courtEmail"));
@@ -502,11 +502,10 @@ public class EmailServiceTest {
     public void shouldBuildTemplateVarsForGeneralEmailAttachmentContested() {
         setConsentedData();
         notificationRequest.setGeneralEmailBody("test email body");
-        notificationRequest.setDocumentContents(new byte[5]);
+        notificationRequest.getFiles().add(createAttachment("link_to_file"));
 
-        Map<String, Object> returnedTemplateVars =
-
-            emailService.buildTemplateVars(notificationRequest, FR_CONTESTED_GENERAL_EMAIL_ATTACHMENT.name());
+        Map<String, Object> returnedTemplateVars = emailService.buildTemplateVars(notificationRequest,
+            FR_CONTESTED_GENERAL_EMAIL_ATTACHMENT.name());
 
         assertNull(returnedTemplateVars.get("courtName"));
         assertNull(returnedTemplateVars.get("courtEmail"));
@@ -521,14 +520,33 @@ public class EmailServiceTest {
         notificationRequest.setNotificationEmail("TestCourtEmail@Test.com");
         notificationRequest.setGeneralEmailBody("Additional instructions for the court");
 
-        Map<String, Object> returnedTemplateVars =
-
-            emailService.buildTemplateVars(notificationRequest, FR_TRANSFER_TO_LOCAL_COURT.name());
+        Map<String, Object> returnedTemplateVars = emailService.buildTemplateVars(notificationRequest,
+            FR_TRANSFER_TO_LOCAL_COURT.name());
 
         assertEquals("123456789", returnedTemplateVars.get("caseReferenceNumber"));
         assertEquals("TestCourtEmail@Test.com", returnedTemplateVars.get("notificationEmail"));
         assertEquals("Additional instructions for the court", returnedTemplateVars.get("generalEmailBody"));
     }
+
+    @Test
+    public void shouldBuildTemplateVarsForMultipleAttachments() {
+        setConsentedData();
+        notificationRequest.setGeneralEmailBody("test email body");
+        notificationRequest.getFiles().add(createAttachment("link_to_file1"));
+        notificationRequest.getFiles().add(createAttachment("link_to_file2"));
+        notificationRequest.getFiles().add(createAttachment("link_to_file3"));
+
+        Map<String, Object> returnedTemplateVars = emailService.buildTemplateVars(notificationRequest,
+            FR_CONTESTED_GENERAL_EMAIL_ATTACHMENT.name());
+
+        assertNull(returnedTemplateVars.get("courtName"));
+        assertNull(returnedTemplateVars.get("courtEmail"));
+        assertEquals("test email body", returnedTemplateVars.get("generalEmailBody"));
+        assertNotNull(returnedTemplateVars.get("link_to_file1"));
+        assertNotNull(returnedTemplateVars.get("link_to_file2"));
+        assertNotNull(returnedTemplateVars.get("link_to_file3"));
+    }
+
 
     @Test
     public void givenRejectGeneralApplicationTemplate_whenPopulateTemplateVars_thenAddRejectionReasonToTemplateVars() {
@@ -677,5 +695,12 @@ public class EmailServiceTest {
         assertNull(returnedTemplateVars.get("courtName"));
         assertNull(returnedTemplateVars.get("courtEmail"));
         assertNull(returnedTemplateVars.get("generalEmailBody"));
+    }
+
+    private NotificationRequestFile createAttachment(String templatePlaceholder) {
+        return NotificationRequestFile.builder()
+            .templatePlaceholder(templatePlaceholder)
+            .fileContents(new byte[5])
+            .build();
     }
 }

@@ -23,6 +23,7 @@ import uk.gov.hmcts.reform.finrem.caseorchestration.model.ccd.wrapper.intevener.
 import uk.gov.hmcts.reform.finrem.caseorchestration.model.ccd.wrapper.intevener.IntervenerWrapper;
 import uk.gov.hmcts.reform.finrem.caseorchestration.model.intervener.IntervenerType;
 import uk.gov.hmcts.reform.finrem.caseorchestration.model.notification.NotificationRequest;
+import uk.gov.hmcts.reform.finrem.caseorchestration.model.notification.NotificationRequestFile;
 import uk.gov.hmcts.reform.finrem.caseorchestration.model.wrapper.SolicitorCaseDataKeysWrapper;
 import uk.gov.hmcts.reform.finrem.caseorchestration.notifications.domain.EmailTemplateNames;
 import uk.gov.hmcts.reform.finrem.caseorchestration.notifications.service.EmailService;
@@ -714,7 +715,12 @@ public class NotificationService {
                 throw new HttpClientErrorException(response.getStatusCode());
             }
             ByteArrayResource resource = (ByteArrayResource) response.getBody();
-            notificationRequest.setDocumentContents((resource != null) ? resource.getByteArray() : new byte[0]);
+            byte[] fileContents = (resource != null) ? resource.getByteArray() : new byte[0];
+            NotificationRequestFile notificationRequestFile = NotificationRequestFile.builder()
+                .templatePlaceholder("link_to_file")
+                .fileContents(fileContents)
+                .build();
+            notificationRequest.getFiles().add(notificationRequestFile);
             return true;
         }
         return false;
