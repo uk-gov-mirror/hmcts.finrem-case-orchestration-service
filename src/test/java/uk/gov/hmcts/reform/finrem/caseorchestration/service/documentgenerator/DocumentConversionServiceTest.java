@@ -2,8 +2,17 @@ package uk.gov.hmcts.reform.finrem.caseorchestration.service.documentgenerator;
 
 import org.apache.commons.lang3.ObjectUtils;
 import org.apache.pdfbox.Loader;
+import org.apache.pdfbox.cos.COSName;
+import org.apache.pdfbox.io.RandomAccessRead;
 import org.apache.pdfbox.pdmodel.PDDocument;
+import org.apache.pdfbox.pdmodel.PDPage;
+import org.apache.pdfbox.pdmodel.PDResources;
+import org.apache.pdfbox.pdmodel.font.PDFont;
+import org.apache.pdfbox.pdmodel.font.PDType0Font;
 import org.apache.pdfbox.pdmodel.interactive.form.PDAcroForm;
+import org.apache.pdfbox.preflight.PreflightDocument;
+import org.apache.pdfbox.preflight.ValidationResult;
+import org.apache.pdfbox.preflight.parser.PreflightParser;
 import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -22,6 +31,10 @@ import uk.gov.hmcts.reform.finrem.caseorchestration.model.document.Document;
 import uk.gov.hmcts.reform.finrem.caseorchestration.service.DocumentConversionService;
 import uk.gov.hmcts.reform.finrem.caseorchestration.service.evidencemanagement.EvidenceManagementDownloadService;
 
+import java.io.BufferedWriter;
+import java.io.ByteArrayInputStream;
+import java.io.File;
+import java.io.FileWriter;
 import java.io.IOException;
 import java.io.InputStream;
 
@@ -65,6 +78,96 @@ public class DocumentConversionServiceTest {
         documentToConvert.setFileName("file.docx");
         documentToConvert.setUrl("docUrl.com");
         documentToConvert.setBinaryUrl("binaryUrl.com");
+    }
+
+    @Test
+    public void fixPdfXCompliance() throws IOException {
+
+        File pdfFile = new File("src/test/resources/fixtures/non-compliant.pdf");
+
+        System.out.println("---- PDF Validation before fix ----");
+        runPreFlightCheck(pdfFile);
+
+//        correctPdfErrors(pdfFile);
+//
+//        System.out.println("---- PDF Validation after fix ----");
+//        runPreFlightCheck(new File("fixed-pdf.pdf"));
+
+    }
+
+    private void runPreFlightCheck(File file){
+
+        String outputFile = "pdf_validation_errors.txt";
+
+        try (BufferedWriter writer = new BufferedWriter(new FileWriter(outputFile))) {
+            // Parse the PDF file to get the validation result
+            ValidationResult result = PreflightParser.validate(file);
+            writer.write("Validating " + file.getName());
+            if (result.isValid()) {
+                writer.write("PDF is valid and meets PDF/X standards.");
+                writer.newLine();
+            } else {
+                writer.write("PDF is not valid and does not meet PDF/X standards.");
+                writer.newLine();
+
+                // Get the list of errors
+                var errors = result.getErrorsList();
+                writer.write("Number of errors: " + errors.size());
+                writer.newLine();
+                writer.newLine();
+
+                // Write each error to the file
+                for (ValidationResult.ValidationError error : errors) {
+                    writer.write("Error: " + error.getDetails());
+                    writer.newLine();
+                }
+            }
+
+            System.out.println("Validation result written to file: " + outputFile);
+        } catch (IOException e) {
+            System.err.println("Error while validating PDF or writing to file: " + e.getMessage());
+        }
+    }
+
+    private void correctPdfErrors(File file) throws IOException {
+        PDDocument document = Loader.loadPDF(file);
+
+        for (PDPage page : document.getPages()) {
+            // Get resources and fonts used in the page
+            PDResources resources = page.getResources();
+            resources.getFontNames().forEach(fontName -> {
+                try {
+                    // Get the font object for the specific font name
+                    PDFont font = resources.getFont(fontName);
+
+                    // If the font is Helvetica and is not embedded, replace it with the embedded one
+                    if (font.getName().equals("Helvetica") && !font.isEmbedded()) {
+                        // Load the built-in Helvetica font
+                        InputStream helveticaStream = PDType0Font.class.getResourceAsStream("/org/apache/pdfbox/resources/ttf/Helvetica.ttf");
+                        PDFont embeddedFont = PDType0Font.load(document, helveticaStream);
+
+                        // Replace all occurrences of the non-embedded font with the embedded version
+                        resources.put(fontName, embeddedFont);
+                    }
+
+                    // If the font is ZapfDingbats and is not embedded, replace it with an embedded font (e.g., Symbol)
+                    if (font.getName().equals("ZapfDingbats") && !font.isEmbedded()) {
+                        // Load the built-in Symbol font
+                        InputStream symbolFontStream = PDType0Font.class.getResourceAsStream("/org/apache/pdfbox/resources/ttf/Arial.ttf"); // Or another embedded font
+                        PDFont embeddedFont = PDType0Font.load(document, symbolFontStream);
+
+                        // Replace all occurrences of the non-embedded ZapfDingbats font with the embedded version
+                        resources.put(fontName, embeddedFont);
+                    }
+                } catch (IOException e) {
+                    e.printStackTrace();
+                }
+            });
+        }
+
+        // Save the fixed PDF
+        document.save("fixed-pdf.pdf");
+        System.out.println("Fixed PDF saved as 'fixed-pdf.pdf'.");
     }
 
     @Test
