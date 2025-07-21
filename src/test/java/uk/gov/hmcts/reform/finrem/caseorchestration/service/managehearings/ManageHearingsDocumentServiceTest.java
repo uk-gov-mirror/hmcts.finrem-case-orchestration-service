@@ -17,7 +17,6 @@ import uk.gov.hmcts.reform.finrem.caseorchestration.mapper.letterdetails.manageh
 import uk.gov.hmcts.reform.finrem.caseorchestration.model.ccd.CaseDocument;
 import uk.gov.hmcts.reform.finrem.caseorchestration.model.ccd.CaseDocumentType;
 import uk.gov.hmcts.reform.finrem.caseorchestration.model.ccd.DocumentCollectionItem;
-import uk.gov.hmcts.reform.finrem.caseorchestration.model.ccd.ExpressCaseParticipation;
 import uk.gov.hmcts.reform.finrem.caseorchestration.model.ccd.FinremCaseData;
 import uk.gov.hmcts.reform.finrem.caseorchestration.model.ccd.FinremCaseDetails;
 import uk.gov.hmcts.reform.finrem.caseorchestration.model.ccd.YesOrNo;
@@ -26,10 +25,8 @@ import uk.gov.hmcts.reform.finrem.caseorchestration.model.ccd.managehearings.Hea
 import uk.gov.hmcts.reform.finrem.caseorchestration.model.ccd.managehearings.ManageHearingDocument;
 import uk.gov.hmcts.reform.finrem.caseorchestration.model.ccd.managehearings.ManageHearingDocumentsCollectionItem;
 import uk.gov.hmcts.reform.finrem.caseorchestration.model.ccd.managehearings.ManageHearingsCollectionItem;
-import uk.gov.hmcts.reform.finrem.caseorchestration.model.ccd.wrapper.ExpressCaseWrapper;
 import uk.gov.hmcts.reform.finrem.caseorchestration.model.ccd.wrapper.ManageHearingsWrapper;
 import uk.gov.hmcts.reform.finrem.caseorchestration.service.GenericDocumentService;
-import uk.gov.hmcts.reform.finrem.caseorchestration.service.express.ExpressCaseService;
 
 import java.time.LocalDateTime;
 import java.util.List;
@@ -64,9 +61,7 @@ class ManageHearingsDocumentServiceTest {
     @Mock
     private ManageHearingFormCLetterDetailsMapper manageHearingFormCLetterDetailsMapper;
     @Mock
-    private ManageHearingFormGLetterDetailsMapper formGLetterDetailsMapper;
-    @Mock
-    private ExpressCaseService expressCaseService;
+    private ManageHearingFormGLetterDetailsMapper manageHearingFormGLetterDetailsMapper;
     @Mock
     private StaticHearingDocumentService staticHearingDocumentService;
 
@@ -149,19 +144,12 @@ class ManageHearingsDocumentServiceTest {
         Map<String, Object> documentDataMap = Map.of("key", "value");
 
         FinremCaseData caseData = FinremCaseData.builder()
-            .expressCaseWrapper(
-                ExpressCaseWrapper.builder()
-                .expressCaseParticipation(isExpressCase
-                    ? ExpressCaseParticipation.ENROLLED : ExpressCaseParticipation.DOES_NOT_QUALIFY)
-                .build())
             .fastTrackDecision(isFastTrackApplication ? YesOrNo.YES : YesOrNo.NO)
             .build();
         finremCaseDetails.setData(caseData);
 
         when(manageHearingFormCLetterDetailsMapper.getDocumentTemplateDetailsAsMap(finremCaseDetails))
             .thenReturn(documentDataMap);
-        when(expressCaseService.isExpressCase(caseData))
-            .thenReturn(isExpressCase);
 
         if (isFastTrackApplication) {
             when(documentConfiguration.getFormCFastTrackTemplate(finremCaseDetails))
@@ -189,7 +177,7 @@ class ManageHearingsDocumentServiceTest {
             .thenReturn(expectedDocument);
 
         // Act
-        CaseDocument actualDocument = manageHearingsDocumentService.generateFormC(finremCaseDetails, AUTH_TOKEN);
+        CaseDocument actualDocument = manageHearingsDocumentService.generateFormC(finremCaseDetails, isExpressCase, AUTH_TOKEN);
 
         // Assert
         assertEquals(expectedDocument, actualDocument);
@@ -215,7 +203,7 @@ class ManageHearingsDocumentServiceTest {
             .documentFilename(FORM_G_FILE_NAME)
             .build();
 
-        when(formGLetterDetailsMapper.getDocumentTemplateDetailsAsMap(finremCaseDetails))
+        when(manageHearingFormGLetterDetailsMapper.getDocumentTemplateDetailsAsMap(finremCaseDetails))
             .thenReturn(documentDataMap);
         when(documentConfiguration.getFormGTemplate(finremCaseDetails))
             .thenReturn(FORM_G_TEMPLATE);
@@ -231,7 +219,7 @@ class ManageHearingsDocumentServiceTest {
 
         // Assert
         assertEquals(expectedDocument, actualDocument);
-        verify(formGLetterDetailsMapper).getDocumentTemplateDetailsAsMap(finremCaseDetails);
+        verify(manageHearingFormGLetterDetailsMapper).getDocumentTemplateDetailsAsMap(finremCaseDetails);
         verify(documentConfiguration).getFormGTemplate(finremCaseDetails);
         verify(documentConfiguration).getFormGFileName();
         verify(genericDocumentService).generateDocumentFromPlaceholdersMap(
@@ -432,10 +420,9 @@ class ManageHearingsDocumentServiceTest {
 
     @Test
     void determineFormCTemplateShouldReturnExpressFormC() {
-        when(expressCaseService.isExpressCase(finremCaseDetails.getData())).thenReturn(true);
         when(documentConfiguration.getManageHearingExpressFormCTemplate()).thenReturn("an express template");
 
-        Pair<CaseDocumentType, String> result = manageHearingsDocumentService.determineFormCTemplate(finremCaseDetails);
+        Pair<CaseDocumentType, String> result = manageHearingsDocumentService.determineFormCTemplate(finremCaseDetails, true);
 
         assertEquals(CaseDocumentType.FORM_C_EXPRESS, result.getLeft());
         assertEquals("an express template", result.getRight());
@@ -447,10 +434,9 @@ class ManageHearingsDocumentServiceTest {
             .fastTrackDecision(YesOrNo.YES)
             .build();
         finremCaseDetails.setData(someCaseData);
-        when(expressCaseService.isExpressCase(finremCaseDetails.getData())).thenReturn(false);
         when(documentConfiguration.getFormCFastTrackTemplate(finremCaseDetails)).thenReturn("a fast track template");
 
-        Pair<CaseDocumentType, String> result = manageHearingsDocumentService.determineFormCTemplate(finremCaseDetails);
+        Pair<CaseDocumentType, String> result = manageHearingsDocumentService.determineFormCTemplate(finremCaseDetails, false);
 
         assertEquals(CaseDocumentType.FORM_C_FAST_TRACK, result.getLeft());
         assertEquals("a fast track template", result.getRight());
@@ -462,10 +448,9 @@ class ManageHearingsDocumentServiceTest {
             .fastTrackDecision(YesOrNo.NO)
             .build();
         finremCaseDetails.setData(someCaseData);
-        when(expressCaseService.isExpressCase(finremCaseDetails.getData())).thenReturn(false);
         when(documentConfiguration.getFormCStandardTemplate(finremCaseDetails)).thenReturn("a standard form C template");
 
-        Pair<CaseDocumentType, String> result = manageHearingsDocumentService.determineFormCTemplate(finremCaseDetails);
+        Pair<CaseDocumentType, String> result = manageHearingsDocumentService.determineFormCTemplate(finremCaseDetails, false);
 
         assertEquals(CaseDocumentType.FORM_C, result.getLeft());
         assertEquals("a standard form C template", result.getRight());

@@ -99,9 +99,9 @@ class ManageHearingActionServiceTest {
             PFD_NCDR_COVER_LETTER,  createCaseDocument("CoverLetter.pdf",
                 "http://example.com/cover-letter"));
 
-        when(manageHearingsDocumentService.determineFormCTemplate(finremCaseDetails)).thenReturn(
+        when(manageHearingsDocumentService.determineFormCTemplate(finremCaseDetails, false)).thenReturn(
             Pair.of(CaseDocumentType.FORM_C, "a template"));
-        when(manageHearingsDocumentService.generateFormC(finremCaseDetails,
+        when(manageHearingsDocumentService.generateFormC(finremCaseDetails, false,
             AUTH_TOKEN)).thenReturn(formC);
         when(manageHearingsDocumentService.generateFormG(finremCaseDetails,
             AUTH_TOKEN)).thenReturn(formG);
@@ -138,9 +138,9 @@ class ManageHearingActionServiceTest {
             PFD_NCDR_COVER_LETTER,  createCaseDocument("CoverLetter.pdf",
                 "http://example.com/cover-letter"));
 
-        when(manageHearingsDocumentService.determineFormCTemplate(finremCaseDetails)).thenReturn(
+        when(manageHearingsDocumentService.determineFormCTemplate(finremCaseDetails, true)).thenReturn(
             Pair.of(CaseDocumentType.FORM_C_EXPRESS, "a template"));
-        when(manageHearingsDocumentService.generateFormC(finremCaseDetails,
+        when(manageHearingsDocumentService.generateFormC(finremCaseDetails, true,
             AUTH_TOKEN)).thenReturn(formC);
         when(manageHearingsDocumentService.generateFormG(finremCaseDetails,
             AUTH_TOKEN)).thenReturn(formG);
@@ -178,9 +178,9 @@ class ManageHearingActionServiceTest {
             PFD_NCDR_COVER_LETTER,  createCaseDocument("CoverLetter.pdf",
                 "http://example.com/cover-letter"));
 
-        when(manageHearingsDocumentService.determineFormCTemplate(finremCaseDetails)).thenReturn(
+        when(manageHearingsDocumentService.determineFormCTemplate(finremCaseDetails, false)).thenReturn(
             Pair.of(CaseDocumentType.FORM_C, "a template"));
-        when(manageHearingsDocumentService.generateFormC(finremCaseDetails,
+        when(manageHearingsDocumentService.generateFormC(finremCaseDetails, false,
             AUTH_TOKEN)).thenReturn(formC);
         when(manageHearingsDocumentService.generatePfdNcdrDocuments(finremCaseDetails,
             AUTH_TOKEN)).thenReturn(pfdNcdrDocuments);

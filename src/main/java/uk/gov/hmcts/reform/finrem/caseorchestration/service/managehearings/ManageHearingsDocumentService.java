@@ -1,13 +1,12 @@
 package uk.gov.hmcts.reform.finrem.caseorchestration.service.managehearings;
 
-import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.lang3.tuple.Pair;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.stereotype.Service;
 import uk.gov.hmcts.reform.finrem.caseorchestration.config.DocumentConfiguration;
-import uk.gov.hmcts.reform.finrem.caseorchestration.mapper.letterdetails.managehearings.HearingNoticeLetterDetailsMapper;
-import uk.gov.hmcts.reform.finrem.caseorchestration.mapper.letterdetails.managehearings.ManageHearingFormCLetterDetailsMapper;
-import uk.gov.hmcts.reform.finrem.caseorchestration.mapper.letterdetails.managehearings.ManageHearingFormGLetterDetailsMapper;
+import uk.gov.hmcts.reform.finrem.caseorchestration.mapper.letterdetails.managehearings.AbstractManageHearingsLetterMapper;
 import uk.gov.hmcts.reform.finrem.caseorchestration.model.ccd.CaseDocument;
 import uk.gov.hmcts.reform.finrem.caseorchestration.model.ccd.CaseDocumentType;
 import uk.gov.hmcts.reform.finrem.caseorchestration.model.ccd.FinremCaseData;
@@ -20,7 +19,6 @@ import uk.gov.hmcts.reform.finrem.caseorchestration.model.ccd.managehearings.Man
 import uk.gov.hmcts.reform.finrem.caseorchestration.model.ccd.wrapper.ManageHearingsWrapper;
 import uk.gov.hmcts.reform.finrem.caseorchestration.model.document.DocumentCategory;
 import uk.gov.hmcts.reform.finrem.caseorchestration.service.GenericDocumentService;
-import uk.gov.hmcts.reform.finrem.caseorchestration.service.express.ExpressCaseService;
 
 import java.util.ArrayList;
 import java.util.Comparator;
@@ -38,17 +36,30 @@ import static uk.gov.hmcts.reform.finrem.caseorchestration.model.ccd.CCDConfigCo
 import static uk.gov.hmcts.reform.finrem.caseorchestration.model.document.DocumentCategory.SYSTEM_DUPLICATES;
 
 @Service
-@RequiredArgsConstructor
 @Slf4j
 public class ManageHearingsDocumentService {
 
     private final GenericDocumentService genericDocumentService;
     private final DocumentConfiguration documentConfiguration;
-    private final HearingNoticeLetterDetailsMapper hearingNoticeLetterDetailsMapper;
-    private final ManageHearingFormCLetterDetailsMapper manageHearingFormCLetterDetailsMapper;
-    private final ManageHearingFormGLetterDetailsMapper formGLetterDetailsMapper;
-    private final ExpressCaseService expressCaseService;
+    private final AbstractManageHearingsLetterMapper hearingNoticeLetterDetailsMapper;
+    private final AbstractManageHearingsLetterMapper manageHearingFormCLetterDetailsMapper;
+    private final AbstractManageHearingsLetterMapper formGLetterDetailsMapper;
     private final StaticHearingDocumentService staticHearingDocumentService;
+
+    @Autowired
+    public ManageHearingsDocumentService (GenericDocumentService genericDocumentService,
+                                         DocumentConfiguration documentConfiguration,
+                                         @Qualifier("hearingNoticeLetterDetailsMapper") AbstractManageHearingsLetterMapper hearingNoticeLetterDetailsMapper,
+                                         @Qualifier("manageHearingFormCLetterDetailsMapper") AbstractManageHearingsLetterMapper manageHearingFormCLetterDetailsMapper,
+                                         @Qualifier("manageHearingFormGLetterDetailsMapper") AbstractManageHearingsLetterMapper manageHearingFormGLetterDetailsMapper,
+                                         StaticHearingDocumentService staticHearingDocumentService) {
+        this.genericDocumentService = genericDocumentService;
+        this.documentConfiguration = documentConfiguration;
+        this.hearingNoticeLetterDetailsMapper = hearingNoticeLetterDetailsMapper;
+        this.manageHearingFormCLetterDetailsMapper = manageHearingFormCLetterDetailsMapper;
+        this.formGLetterDetailsMapper = manageHearingFormGLetterDetailsMapper;
+        this.staticHearingDocumentService = staticHearingDocumentService;
+    }
 
     /**
      * Generates a hearing notice document for the given hearing and case details.
@@ -78,7 +89,7 @@ public class ManageHearingsDocumentService {
      * @param authorisationToken the token for document generation
      * @return the generated Form C document as a {@link CaseDocument}
      */
-    public CaseDocument generateFormC(FinremCaseDetails finremCaseDetails,
+    public CaseDocument generateFormC(FinremCaseDetails finremCaseDetails, boolean isExpressCase,
                                       String authorisationToken) {
 
         Map<String, Object>  documentDataMap = manageHearingFormCLetterDetailsMapper.getDocumentTemplateDetailsAsMap(finremCaseDetails);
@@ -86,7 +97,7 @@ public class ManageHearingsDocumentService {
         return genericDocumentService.generateDocumentFromPlaceholdersMap(
                 authorisationToken,
                 documentDataMap,
-                determineFormCTemplate(finremCaseDetails).getRight(),
+                determineFormCTemplate(finremCaseDetails, isExpressCase).getRight(),
                 documentConfiguration.getFormCFileName(),
                 finremCaseDetails.getId().toString()
         );
@@ -221,10 +232,10 @@ public class ManageHearingsDocumentService {
      * @param caseDetails the details of the case
      * @return a pair containing the {@link CaseDocumentType} and the string for the template
      */
-    public Pair<CaseDocumentType, String> determineFormCTemplate(FinremCaseDetails caseDetails) {
+    public Pair<CaseDocumentType, String> determineFormCTemplate(FinremCaseDetails caseDetails, boolean isExpressCase) {
         FinremCaseData caseData = caseDetails.getData();
 
-        if (expressCaseService.isExpressCase(caseData)) {
+        if (isExpressCase) {
             return Pair.of(
                 CaseDocumentType.FORM_C_EXPRESS,
                 documentConfiguration.getManageHearingExpressFormCTemplate()

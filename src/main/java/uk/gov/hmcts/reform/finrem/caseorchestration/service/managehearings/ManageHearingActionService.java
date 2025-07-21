@@ -217,11 +217,13 @@ public class ManageHearingActionService {
     }
 
     private void generateFormC(FinremCaseDetails finremCaseDetails, String authToken, Map<String, DocumentRecord> documentMap) {
-        CaseDocumentType formCType = manageHearingsDocumentService.determineFormCTemplate(finremCaseDetails).getLeft();
+        boolean isExpressCase = expressCaseService.isExpressCase(finremCaseDetails.getData());
+        CaseDocumentType formCType =
+            manageHearingsDocumentService.determineFormCTemplate(finremCaseDetails, isExpressCase).getLeft();
         documentMap.put(
             FORM_C,
             new DocumentRecord(
-                manageHearingsDocumentService.generateFormC(finremCaseDetails, authToken),
+                manageHearingsDocumentService.generateFormC(finremCaseDetails, isExpressCase, authToken),
                 formCType
             )
         );
